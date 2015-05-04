@@ -2,7 +2,6 @@ package mp3
 
 import (
   "errors"
-  "io"
 )
 
 const (
@@ -64,13 +63,6 @@ func ParseHeader(bytes []byte) (FrameHeader, error) {
   header |= FrameHeader(bytes[3])
 
   return header, nil
-}
-
-// Reads and parses the 4-byte frame header
-func ReadFrameHeader(file io.Reader) (FrameHeader, error) {
-  header := make([]byte, 4)
-  file.Read(header)
-  return ParseHeader(header)
 }
 
 // Returns whether or not the MPEG frame looks valid

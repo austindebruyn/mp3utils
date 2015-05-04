@@ -2,7 +2,6 @@ package mp3
 
 import (
   "fmt"
-  "io"
   "errors"
 )
 
@@ -14,11 +13,14 @@ type Frame struct {
   HasCRC bool
 }
 
+var FirstFrame bool = true
+var PreviousFrameMainDataEnd int
+
 // Reads an entire MP3 frame
-func ReadFrame(file io.Reader) (Frame, error) {
+func ReadFrame(bytes []byte, offset int) (Frame, error) {
   var frame Frame
 
-  header, err := ReadFrameHeader(file)
+  header, err := ParseHeader(bytes[:4])
   if err != nil {
     return frame, err
   }
@@ -30,16 +32,36 @@ func ReadFrame(file io.Reader) (Frame, error) {
   // Parse a CRC if it exists
   if header.HasCRC() {
     frame.HasCRC = true
-    var crcbytes []byte = make([]byte, 2)
-    file.Read(crcbytes)
+    crcbytes := bytes[2:4]
     frame.CRC = (uint16(crcbytes[0]) << 8) | uint16(crcbytes[1])
   }
 
-  side := ReadSideData(header, file)
-  data, err := ReadFrameData(header, file)
+  side := ReadSideData(header, bytes, 0)
+  data, err := ReadFrameData(header, bytes, 0)
   if err != nil {
     return frame, err
   }
+
+  if FirstFrame {
+    FirstFrame = false
+    fmt.Println("first frame")
+  } else {
+    // Attempt to parse out main data
+    StartSeek1 := offset - PreviousFrameMainDataEnd
+    EndSeek1 := offset
+    StartSeek2 := offset + 4 + header.GetSideDataLength()
+    fl, _ := header.GetFrameLength()
+    EndSeek2 := offset + int(fl) - int(side.MainDataPtr)
+
+    if StartSeek1 >= 0 {
+      // Only parse real things...
+      DataLength := EndSeek1 + EndSeek2 - StartSeek1 - StartSeek2
+      fmt.Printf("Main data is contained [%d,%d] [%d, %d] Length: %d\n", StartSeek1, EndSeek1, StartSeek2, EndSeek2, DataLength)
+      MainData := append(bytes[StartSeek1:EndSeek2], bytes[StartSeek2:EndSeek2]...)
+      fmt.Printf("hallelujah: %v\n", MainData)
+    }
+  }
+  PreviousFrameMainDataEnd = int(side.MainDataPtr)
 
   frame.Header = header
   frame.Side = side

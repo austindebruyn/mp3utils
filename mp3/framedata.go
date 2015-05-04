@@ -3,14 +3,13 @@ package mp3
 import (
   "fmt"
   "errors"
-  "io"
 )
 
 type Chunk []byte
 type FrameData []Chunk
 
 // Determines length of the frame data and reads it into a slice
-func ReadFrameData(header FrameHeader, file io.Reader) (FrameData, error) {
+func ReadFrameData(header FrameHeader, bytes []byte, offset int) (FrameData, error) {
   frameLength, err := header.GetFrameLength()
   if err != nil {
     return nil, err
@@ -23,9 +22,8 @@ func ReadFrameData(header FrameHeader, file io.Reader) (FrameData, error) {
     message := fmt.Sprintf("calc error: bad data length %d", dataLength)
     return nil, errors.New(message)
   }
-  dataBytes := make([]byte, dataLength)
+  dataBytes := bytes[offset+4+sideDataLength:offset+4+sideDataLength+dataLength]
 
-  file.Read(dataBytes)
   if header.GetChannelMode() == MPEG_CM_Mono {
     // mono file, 2 chunks per frame
     length := len(dataBytes)

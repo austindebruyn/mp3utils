@@ -2,7 +2,6 @@ package mp3
 import (
   //"errors"
   "fmt"
-  "io"
   "github.com/austindebruyn/mp3utils/mp3/utils"
 )
 
@@ -22,10 +21,14 @@ type ChunkMetadata struct {
 }
 
 // Reads the side data chunk from the file
-func ReadSideData(header FrameHeader, file io.Reader) SideData {
+func ReadSideData(header FrameHeader, bytes []byte, offset int) SideData {
+
+  if header.GetVersion() != MPEGVersion2 {
+    panic("can only process v2")
+  }
+
   size := header.GetSideDataLength()
-  array := make([]byte, size)
-  file.Read(array)
+  array := bytes[offset+4:offset+4+size]
   isMono := header.GetChannelMode() == MPEG_CM_Mono
   sideData := ParseSideData(array, isMono)
   return sideData
@@ -37,12 +40,6 @@ func ParseSideData(bytes []byte, isMono bool) SideData {
 
   side.ShowBytes = bytes
 
-  // Parse out the pointer to the main data section
-  var parsed uint32
-  parsed |= uint32(bytes[0]) << 1
-  parsed |= uint32(bytes[1]) & 0x80
-  side.MainDataPtr = uint(parsed)
-
   // Dual and mono channel side data is processed much differently
   if isMono {
     panic("cant do mono yet!")
@@ -51,7 +48,7 @@ func ParseSideData(bytes []byte, isMono bool) SideData {
     side.MainDataPtr, _ = pickbits.PickBits(bytes, 0, 9)
 
     var Chunk1L ChunkMetadata
-    Chunk1L.Size, _ = pickbits.PickBits(bytes, 20, 12)
+    Chunk1L.Size, _ = pickbits.PickBits(bytes, 18, 12)
     Chunk1L.BigValues, _ = pickbits.PickBits(bytes, 44, 9)
     Chunk1L.GlobalGain, _ = pickbits.PickBits(bytes, 62, 8)
     Chunk1L.ScaleFactor, _ = pickbits.PickBits(bytes, 78, 4)

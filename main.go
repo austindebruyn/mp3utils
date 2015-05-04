@@ -21,12 +21,42 @@ func main() {
   }
   defer file.Close()
 
-  for i := 0; i < 20; i++ {
-    frame, err := mp3.ReadFrame(file)
+  stat, err := file.Stat()
+  if err != nil {
+    fmt.Printf("Couldn't open %s.\n", filename)
+    os.Exit(1)
+  }
+
+  data := make([]byte, stat.Size())
+  fmt.Printf("Buffer of %d\n\n", len(data))
+
+  file.Read(data)
+
+  seek := 0
+  frame, err := mp3.ReadFrame(data, 0)
+
+  var frameLength int
+  frameLength, err = frame.Header.GetFrameLength()
+  if err != nil {
+    fmt.Println(err)
+    os.Exit(1)
+  }
+  seek += frameLength
+
+  for i := 0; i < 2; i++ {
+    frame, err := mp3.ReadFrame(data, seek)
     if err != nil {
       fmt.Println(err)
       os.Exit(1)
     }
+
+    frameLength, err = frame.Header.GetFrameLength()
+    if err != nil {
+      fmt.Println(err)
+      os.Exit(1)
+    }
+    seek += frameLength
+
     fmt.Println(frame)
   }
 }
